@@ -5,6 +5,7 @@ import { globals } from "./Globals";
 import { SelfChatMessageType, sendSelfPMFromServer } from "./chat";
 import * as createGame from "./lobby/createGame";
 import { createJSONFromReplay } from "./lobby/createReplayJSON";
+import { getURLFromPath } from "./utils";
 
 // Define a command handler map.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -181,6 +182,68 @@ chatCommands.set("setowner", setLeader);
 chatCommands.set("changeleader", setLeader);
 chatCommands.set("changelead", setLeader);
 chatCommands.set("changeowner", setLeader);
+
+// /token — placeholder handler
+async function token(room: string) {
+  const url = getURLFromPath("/auth/token");
+  const errorRef = `ATK-${Math.random().toString(36).slice(2, 8)}`;
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "X-Error-Ref": errorRef,
+      },
+    });
+
+    if (!response.ok) {
+      const bodyText = await response.text();
+      // Log detail for maintainers without exposing it to users.
+      console.warn("[/token] fetch failed", {
+        status: response.status,
+        statusText: response.statusText,
+        body: bodyText,
+        errorRef,
+      });
+
+      let userMsg: string;
+      if (response.status === 401) {
+        userMsg = `Unable to fetch auth token. Please sign in again and retry. Reference: ${errorRef}`;
+      } else if (response.status === 404) {
+        userMsg = `Unable to fetch auth token. Please contact support with this reference: ${errorRef}`;
+      } else if (response.status >= 500) {
+        userMsg = `Unable to fetch auth token due to a server error. Reference: ${errorRef}`;
+      } else {
+        userMsg = `Unable to fetch auth token. Reference: ${errorRef}`;
+      }
+
+      sendSelfPMFromServer(userMsg, room, SelfChatMessageType.Error);
+      return;
+    }
+
+    const data = (await response.json()) as {
+      token: string;
+      expiresAt: string;
+    };
+
+    sendSelfPMFromServer(
+      `Your auth token: ${data.token} (expires ${data.expiresAt})`,
+      room,
+      SelfChatMessageType.Info,
+    );
+  } catch {
+    // Log detail for maintainers without exposing it to users.
+    console.warn("[/token] network error while fetching auth token", { errorRef });
+    sendSelfPMFromServer(
+      `Unable to fetch auth token. Check your connection and retry. Reference: ${errorRef}`,
+      room,
+      SelfChatMessageType.Error,
+    );
+  }
+}
+chatCommands.set("token", token);
+chatCommands.set("auth", token);
 
 // /setvariant [variant]
 function setVariant(room: string, args: readonly string[]) {

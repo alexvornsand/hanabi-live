@@ -16,6 +16,8 @@ type User struct {
 	Username        string
 	PasswordHash    sql.NullString
 	OldPasswordHash sql.NullString
+	AuthToken       sql.NullString
+	AuthTokenExpiry sql.NullTime
 }
 
 func (*Users) Insert(
@@ -42,6 +44,8 @@ func (*Users) Insert(
 		Username:        username,
 		PasswordHash:    sql.NullString{},
 		OldPasswordHash: sql.NullString{},
+		AuthToken:       sql.NullString{},
+		AuthTokenExpiry: sql.NullTime{},
 	}, nil
 }
 
@@ -53,7 +57,9 @@ func (*Users) Get(username string) (bool, User, error) {
 			id,
 			username,
 			password_hash,
-			old_password_hash
+			old_password_hash,
+			auth_token,
+			auth_token_expires_at
 		FROM users
 		WHERE username = $1
 	`, username).Scan(
@@ -61,6 +67,8 @@ func (*Users) Get(username string) (bool, User, error) {
 		&user.Username,
 		&user.PasswordHash,
 		&user.OldPasswordHash,
+		&user.AuthToken,
+		&user.AuthTokenExpiry,
 	); errors.Is(err, pgx.ErrNoRows) {
 		return false, user, nil
 	} else if err != nil {
@@ -166,4 +174,37 @@ func (*Users) UpdatePassword(userID int, passwordHash string) error {
 		WHERE id = $2
 	`, passwordHash, userID)
 	return err
+}
+
+func (*Users) GetAuthToken(userID int) (sql.NullString, sql.NullTime, error) {
+	var token sql.NullString
+	var expiresAt sql.NullTime
+	err := db.QueryRow(context.Background(), `
+		SELECT auth_token, auth_token_expires_at
+		FROM users
+		WHERE id = $1
+	`, userID).Scan(&token, &expiresAt)
+	return token, expiresAt, err
+}
+
+func (*Users) SetAuthToken(userID int, token string, expiresAt time.Time) error {
+	_, err := db.Exec(context.Background(), `
+		UPDATE users
+		SET
+			auth_token = $1,
+			auth_token_expires_at = $2
+		WHERE id = $3
+	`, token, expiresAt, userID)
+	return err
+}
+
+func (*Users) GetUsernameByAuthToken(token string) (string, int, error) {
+	var username string
+	var userID int
+	err := db.QueryRow(context.Background(), `
+		SELECT username, id
+		FROM users
+		WHERE auth_token = $1 AND auth_token_expires_at > NOW()
+	`, token).Scan(&username, &userID)
+	return username, userID, err
 }

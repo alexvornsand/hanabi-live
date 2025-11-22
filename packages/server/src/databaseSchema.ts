@@ -17,6 +17,10 @@ export const usersTable = pgTable("users", {
   username: text("username").notNull().unique(),
   normalizedUsername: text("normalized_username").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
+  authToken: text("auth_token").unique(),
+  authTokenExpiresAt: timestamp("auth_token_expires_at", {
+    withTimezone: true,
+  }),
   lastIP: text("last_ip").notNull(),
   datetimeCreated: timestamp("datetime_created", { withTimezone: true })
     .notNull()

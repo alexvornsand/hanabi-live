@@ -177,6 +177,8 @@ func httpInit() {
 
 	// Path handlers (for cookies and logging in)
 	httpRouter.POST("/login", httpLogin)
+	httpRouter.POST("/auth/token", httpAuthToken)
+	httpRouter.GET("/auth/username", httpAuthUsername)
 	httpRouter.GET("/logout", httpLogout)
 	httpRouter.GET("/test-cookie", httpTestCookie)
 	httpRouter.GET("/ws", httpWS)

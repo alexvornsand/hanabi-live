@@ -42,6 +42,12 @@ CREATE TABLE users (
     /* TODO: Delete this and delete the code for `old_password_hash` in Golang. */
     old_password_hash    TEXT         NULL, /* A SHA-256 hash */
 
+    /* A long-lived authentication token for external validation APIs. */
+    auth_token           TEXT         NULL  UNIQUE,
+
+    /* Expiration for the auth token above. */
+    auth_token_expires_at TIMESTAMPTZ NULL,
+
     last_ip              TEXT         NOT NULL,
     datetime_created     TIMESTAMPTZ  NOT NULL  DEFAULT NOW(),
     datetime_last_login  TIMESTAMPTZ  NOT NULL  DEFAULT NOW()
